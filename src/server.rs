@@ -5,11 +5,12 @@ use crate::logger;
 use async_notify::Notify;
 use async_trait::async_trait;
 use derivative::Derivative;
-use omnipaxos_core::ballot_leader_election::Ballot;
-use omnipaxos_core::sequence_paxos::{SequencePaxos, SequencePaxosConfig};
-use omnipaxos_core::storage::Storage;
 use omnipaxos_core::{
-    ballot_leader_election as ble, messages,
+    ballot_leader_election as ble,
+    ballot_leader_election::Ballot,
+    messages,
+    sequence_paxos::{SequencePaxos, SequencePaxosConfig},
+    storage::Storage,
     storage::{Snapshot, StopSignEntry},
 };
 use slog::{info, Logger};
@@ -81,8 +82,8 @@ impl ResultNotifier {
         id: u64,
         res: Result<QueryResults, StoreError>,
     ) {
-        self.results.insert(id, res);
         if let Some(completion) = self.cmnd_completion.remove(&id) {
+            self.results.insert(id, res);
             completion.notify();
         }
     }
@@ -294,7 +295,7 @@ pub struct StoreServer<T: SequencePaxosStoreTransport + Send + Sync> {
     halt: Arc<Mutex<bool>>,
 }
 
-const HEARTBEAT_DELAY: u64 = 190;
+const HEARTBEAT_DELAY: u64 = 10;
 const CONN_POOL_SIZE: usize = 20;
 
 impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
@@ -363,7 +364,7 @@ impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
     pub fn start_ble_event_loop(&self) {
         info!(self.logger, "Replica {} starting ble event loop", self.id);
         loop {
-            sleep(Duration::from_millis(10));
+            sleep(Duration::from_millis(500));
 
             if *self.halt.lock().unwrap() {
                 break;
@@ -394,7 +395,7 @@ impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
         consistency: Consistency,
     ) -> Result<QueryResults, StoreError> {
         let consistency = if is_read_statement(stmt.as_ref()) {
-            consistency
+            consistency //TODO relaxed read can be executed before another command => error
         } else {
             Consistency::Strong
         };
@@ -402,12 +403,6 @@ impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
         let results = match consistency {
             Consistency::Strong => {
                 let (notify, id) = {
-                    info!(
-                        self.logger,
-                        "Strong consistency query -> {}",
-                        stmt.as_ref().to_string()
-                    );
-                    let mut seq_paxos = self.seq_paxos.lock().unwrap();
                     let mut query_result_notifier = self.query_result_notifier.lock().unwrap();
                     let id = self.next_cmd_id.fetch_add(1, Ordering::SeqCst);
                     let cmd = StoreCommand {
@@ -416,11 +411,14 @@ impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
                     };
                     let notify = Arc::new(Notify::new());
                     query_result_notifier.add_command(id, notify.clone());
+
+                    let mut seq_paxos = self.seq_paxos.lock().unwrap();
                     seq_paxos.append(cmd).unwrap();
                     (notify, id)
                 };
 
                 notify.notified().await;
+
                 let results = self
                     .query_result_notifier
                     .lock()
