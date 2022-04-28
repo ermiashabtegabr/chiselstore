@@ -295,7 +295,7 @@ pub struct StoreServer<T: SequencePaxosStoreTransport + Send + Sync> {
     halt: Arc<Mutex<bool>>,
 }
 
-const HEARTBEAT_DELAY: u64 = 10;
+const HEARTBEAT_DELAY: u64 = 100;
 const CONN_POOL_SIZE: usize = 20;
 
 impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
@@ -364,7 +364,7 @@ impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
     pub fn start_ble_event_loop(&self) {
         info!(self.logger, "Replica {} starting ble event loop", self.id);
         loop {
-            sleep(Duration::from_millis(500));
+            sleep(Duration::from_millis(50));
 
             if *self.halt.lock().unwrap() {
                 break;
