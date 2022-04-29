@@ -213,7 +213,7 @@ impl<S: Snapshot<StoreCommand>> Storage<StoreCommand, S> for Store<S> {
         let decided_entries = self.get_entries(self.ld, ld);
 
         decided_entries
-            .into_iter()
+            .iter()
             .for_each(|entry| self.apply_queries(entry.clone()));
 
         self.ld = ld;
