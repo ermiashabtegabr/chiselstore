@@ -289,14 +289,16 @@ async fn test_shutdown_leader() {
     let query_handler = tokio::task::spawn(async {
         setup::execute_query(
             1,
-            String::from("CREATE TABLE IF NOT EXISTS test_shutdown_leader (i INTEGER PRIMARY KEY)"),
+            String::from(
+                "CREATE TABLE IF NOT EXISTS test_shutdown_leader (i INTEGER PRIMARY KEY);",
+            ),
             Consistency::RelaxedReads,
         )
         .await;
 
         setup::execute_query(
             1,
-            String::from("INSERT INTO test_shutdown_leader VALUES(50)"),
+            String::from("INSERT INTO test_shutdown_leader VALUES(50);"),
             Consistency::RelaxedReads,
         )
         .await;
