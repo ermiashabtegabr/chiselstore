@@ -385,6 +385,7 @@ impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
     }
 
     pub fn halt(&self, val: bool) {
+        info!(self.logger, "Replica {} halting", self.id);
         let mut halt = self.halt.lock().unwrap();
         *halt = val
     }
@@ -395,7 +396,7 @@ impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
         consistency: Consistency,
     ) -> Result<QueryResults, StoreError> {
         let consistency = if is_read_statement(stmt.as_ref()) {
-            consistency //TODO relaxed read can be executed before another command => error
+            consistency
         } else {
             Consistency::Strong
         };
@@ -417,6 +418,7 @@ impl<T: SequencePaxosStoreTransport + Send + Sync> StoreServer<T> {
                     (notify, id)
                 };
 
+                //TODO add a timeout as the entry could be lost
                 notify.notified().await;
 
                 let results = self

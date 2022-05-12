@@ -73,9 +73,9 @@ async fn test_consistency_relaxed() {
     )
     .await;
 
-    assert!(res_one.len() == 1);
-    assert!(res_two.len() == 1 || res_two.len() == 0);
-    assert!(res_three.len() == 1 || res_three.len() == 0);
+    assert!((res_one.len() == 1) && (res_one[0] == "50"));
+    assert!((res_two.len() == 1) && (res_two[0] == "50") || res_two.len() == 0);
+    assert!((res_three.len() == 1) && (res_three[0] == "50") || res_three.len() == 0);
 
     setup::execute_query(
         1,
@@ -161,7 +161,7 @@ async fn test_overwritten_values() {
     let first_write = tokio::task::spawn(async {
         setup::execute_query(
             2,
-            String::from("INSERT OR REPLACE INTO test_overwrite VALUES(1,3);"),
+            String::from("INSERT OR REPLACE INTO test_overwrite VALUES(1,2);"),
             Consistency::Strong,
         )
         .await;
